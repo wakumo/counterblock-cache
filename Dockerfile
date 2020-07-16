@@ -13,7 +13,8 @@ RUN go build -o app main.go
 
 # Runtime Container
 FROM alpine
+
 RUN apk add --no-cache ca-certificates
 COPY --from=builder /go/src/github.com/tumf/counterblock-cache/app /app
 EXPOSE 3222
-ENTRYPOINT ["/app"]
+CMD ["/app"]

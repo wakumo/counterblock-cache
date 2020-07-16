@@ -1,32 +1,19 @@
 /*
-  cbc
-	[--redis-host=127.0.0.0]
-	[--redis-port=6379]
-	https://cb1.server [https://cb2.server [https://cb3.server...]]
-
-
-  https://golang.org/pkg/net/http/#Request
-  https://golang.org/pkg/net/http/#Response
+CBNODES='https://cb1 https://cb2 https://cb3' LISTEN='localhost:3333' REDIS='localhost:6789' ./counterblock-cache
 */
 package main
 
 import (
-	"flag"
 	"fmt"
+	"github.com/kelseyhightower/envconfig"
 	"github.com/pkg/errors"
 	"io"
 	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
+	"strings"
 	//"github.com/gomodule/redigo/redis"
-)
-
-var (
-	address    = flag.String("l", "", "Listen address")
-	port       = flag.Int("p", 8080, "Listen port")
-	redis_host = flag.String("redis-host", "", "redis host")
-	redis_port = flag.Int("redis-port", 6379, "redis port")
 )
 
 var nodes []string
@@ -93,14 +80,22 @@ func ProxyServer(res http.ResponseWriter, req *http.Request) {
 	res.Write(body)
 }
 
+type Config struct {
+	CBNODES string `required:"true"`
+	LISTEN  string `default:":8080"`
+	REDIS   string `default:"localhost:6789"`
+}
+
 func main() {
-	flag.Parse()
-	nodes = flag.Args()
+	var config Config
+	if err := envconfig.Process("", &config); err != nil {
+		log.Fatalf("Failed to process env: %s", err.Error())
+	}
+	nodes = strings.Split(config.CBNODES, " ")
 	log.Println("nodes: " + fmt.Sprint(nodes))
-	listen := fmt.Sprintf("%s:%d", *address, *port)
 	http.HandleFunc("/", ProxyServer)
-	log.Printf("Listen  %s", listen)
-	log.Fatal(http.ListenAndServe(listen, nil))
+	log.Printf("Listen  %s", config.LISTEN)
+	log.Fatal(http.ListenAndServe(config.LISTEN, nil))
 }
 
 func shuffle(data []string) {

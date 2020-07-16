@@ -1,27 +1,20 @@
 # Counterblock Cache
 
+## Env
+
+```
+go version go1.7 darwin/amd64
+```
 
 ## Build
 
 ```
+go get
 go build
 ```
 
 ## Usage
 
 ```
-Usage: ./counterblock-cache [options] http://cb1 http://cb2 http://cb3 ...
-  -l string
-        Listen address (default "localhost")
-  -p int
-        Listen port (default 3222)
-  -redis-host string
-        redis host (default "localhost")
-  -redis-port int
-        redis port (default 6379)
+CBNODES='https://cb1 https://cb2 https://cb3' LISTEN='localhost:3333' REDIS='localhost:6789' ./counterblock-cache
 ```
-
-
-
-
-
