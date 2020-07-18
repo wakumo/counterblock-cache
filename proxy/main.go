@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/gomodule/redigo/redis"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/pkg/errors"
 	"io"
@@ -12,19 +13,26 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
-	"strings"
-	//"github.com/gomodule/redigo/redis"
 )
 
+var db redis.Conn
 var nodes []string
 
 type HttpHandler struct{}
 
+func getAvailableNodes() []string {
+	res, err := redis.Strings(db.Do("ZRANGE", "available_nodes", 0, 3))
+	if err != nil {
+		panic(err)
+	}
+	log.Println("avails: " + fmt.Sprint(res))
+	return res
+}
+
 func requestBroker(method string, path string, headers http.Header, body io.Reader) ([]byte, int, http.Header, error) {
 	var res *http.Response
 	contentType := headers.Get("Content-type")
-
-	shuffle(nodes)
+	nodes = getAvailableNodes()
 
 	for _, node := range nodes {
 		url := node + path
@@ -59,6 +67,11 @@ func ProxyServer(res http.ResponseWriter, req *http.Request) {
 	path := req.URL.Path
 	method := req.Method
 	headers := req.Header
+	// preflight
+	if method == "OPTIONS" {
+		res.WriteHeader(http.StatusOK)
+		return
+	}
 
 	body, code, res_headers, err := requestBroker(method, path, headers, req.Body)
 	if err != nil {
@@ -73,9 +86,8 @@ func ProxyServer(res http.ResponseWriter, req *http.Request) {
 }
 
 type Config struct {
-	CBNODES string `required:"true"`
-	LISTEN  string `default:":8080"`
-	REDIS   string `default:"localhost:6789"`
+	LISTEN string `default:":8080"`
+	REDIS  string `default:":6379"`
 }
 
 func main() {
@@ -83,8 +95,13 @@ func main() {
 	if err := envconfig.Process("", &config); err != nil {
 		log.Fatalf("Failed to process env: %s", err.Error())
 	}
-	nodes = strings.Split(config.CBNODES, " ")
-	log.Println("nodes: " + fmt.Sprint(nodes))
+
+	c, err := redis.Dial("tcp", config.REDIS)
+	if err != nil {
+		panic(err)
+	}
+	db = c
+
 	http.HandleFunc("/", ProxyServer)
 	log.Printf("Listen  %s", config.LISTEN)
 	log.Fatal(http.ListenAndServe(config.LISTEN, nil))
