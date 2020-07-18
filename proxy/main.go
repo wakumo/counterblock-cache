@@ -13,6 +13,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"regexp"
 )
 
 var db redis.Conn
@@ -78,8 +79,13 @@ func ProxyServer(res http.ResponseWriter, req *http.Request) {
 		// log error
 		log.Println(err)
 	}
+
 	for k, h := range res_headers {
-		res.Header().Set(k, h[0])
+		// filter headers
+		r := regexp.MustCompile(`^[Aa]ccess-[Cc]ontrol-.*`)
+		if !r.MatchString(k) {
+			res.Header().Set(k, h[0])
+		}
 	}
 	res.WriteHeader(code)
 	res.Write(body)
