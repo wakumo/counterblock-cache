@@ -16,5 +16,5 @@ FROM alpine
 
 RUN apk add --no-cache ca-certificates
 COPY --from=builder /go/src/github.com/tumf/counterblock-cache/app /app
-EXPOSE 3222
+EXPOSE 8080
 CMD ["/app"]
