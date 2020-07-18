@@ -20,8 +20,9 @@ var nodes []string
 
 type HttpHandler struct{}
 
-func requestBroker(method string, path string, contentType string, body io.Reader) ([]byte, int, error) {
+func requestBroker(method string, path string, headers http.Header, body io.Reader) ([]byte, int, http.Header, error) {
 	var res *http.Response
+	contentType := headers.Get("Content-type")
 
 	shuffle(nodes)
 
@@ -33,7 +34,7 @@ func requestBroker(method string, path string, contentType string, body io.Reade
 		case "POST":
 			res, _ = http.Post(url, contentType, body)
 		default:
-			return nil, 500, errors.New("Unsupported method " + method)
+			return nil, 500, nil, errors.New("Unsupported method " + method)
 		}
 		if res == nil {
 			continue
@@ -47,34 +48,25 @@ func requestBroker(method string, path string, contentType string, body io.Reade
 		defer res.Body.Close()
 		byteArray, _ := ioutil.ReadAll(res.Body)
 
-		return byteArray, res.StatusCode, nil
+		return byteArray, res.StatusCode, res.Header, nil
 	}
 
 	// todo: resolve by cache
-	return nil, 500, errors.New("Cannot resolved")
-}
-
-func (h HttpHandler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
-	path := req.URL.Path
-	method := req.Method
-	contentType := req.Header.Get("Content-type")
-	body, code, err := requestBroker(method, path, contentType, req.Body)
-	if err != nil {
-		// log error
-		log.Println(err)
-	}
-	res.WriteHeader(code)
-	res.Write(body)
+	return nil, 500, nil, errors.New("Cannot resolved")
 }
 
 func ProxyServer(res http.ResponseWriter, req *http.Request) {
 	path := req.URL.Path
 	method := req.Method
-	contentType := req.Header.Get("Content-type")
-	body, code, err := requestBroker(method, path, contentType, req.Body)
+	headers := req.Header
+
+	body, code, res_headers, err := requestBroker(method, path, headers, req.Body)
 	if err != nil {
 		// log error
 		log.Println(err)
+	}
+	for k, h := range res_headers {
+		res.Header().Set(k, h[0])
 	}
 	res.WriteHeader(code)
 	res.Write(body)
