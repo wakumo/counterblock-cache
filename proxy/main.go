@@ -14,14 +14,27 @@ import (
 	"math/rand"
 	"net/http"
 	"regexp"
+	"time"
 )
 
-var db redis.Conn
 var nodes []string
+var pool *redis.Pool
 
 type HttpHandler struct{}
 
+func newPool(addr string) *redis.Pool {
+	return &redis.Pool{
+		MaxIdle:     3,
+		MaxActive:   0,
+		IdleTimeout: 240 * time.Second,
+		Dial:        func() (redis.Conn, error) { return redis.Dial("tcp", addr) },
+	}
+}
+
 func getAvailableNodes() []string {
+	db := pool.Get()
+	defer db.Close()
+
 	res, err := redis.Strings(db.Do("ZRANGE", "available_nodes", 0, 3))
 	if err != nil {
 		panic(err)
@@ -102,11 +115,7 @@ func main() {
 		log.Fatalf("Failed to process env: %s", err.Error())
 	}
 
-	c, err := redis.Dial("tcp", config.REDIS)
-	if err != nil {
-		panic(err)
-	}
-	db = c
+	pool = newPool(config.REDIS)
 
 	http.HandleFunc("/", ProxyServer)
 	log.Printf("Listen  %s", config.LISTEN)
