@@ -1,9 +1,7 @@
-/*
-CBNODES='https://cb1 https://cb2 https://cb3' LISTEN='localhost:3333' REDIS='localhost:6789' ./counterblock-cache
-*/
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/gomodule/redigo/redis"
 	"github.com/kelseyhightower/envconfig"
@@ -13,7 +11,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
-	"regexp"
+	//	"regexp"
 	"time"
 )
 
@@ -43,25 +41,25 @@ func getAvailableNodes() []string {
 	return res
 }
 
-func requestBroker(method string, path string, headers http.Header, body io.Reader) ([]byte, int, http.Header, error) {
+func requestBroker(method string, path string, headers http.Header, bodyReader io.Reader) ([]byte, int, http.Header, error) {
 	var res *http.Response
+	body, _ := ioutil.ReadAll(bodyReader)
 	contentType := headers.Get("Content-type")
 	nodes = getAvailableNodes()
-
+	var url string
 	for _, node := range nodes {
-		url := node + path
+		url = node + path
 		switch method {
 		case "GET":
 			res, _ = http.Get(url)
 		case "POST":
-			res, _ = http.Post(url, contentType, body)
+			res, _ = http.Post(url, contentType, bytes.NewReader(body))
 		default:
 			return nil, 500, nil, errors.New("Unsupported method " + method)
 		}
 		if res == nil {
 			continue
 		}
-		log.Printf("%d %s %s", res.StatusCode, method, url)
 		if res.StatusCode < 500 {
 			break
 		}
@@ -69,7 +67,7 @@ func requestBroker(method string, path string, headers http.Header, body io.Read
 	if res != nil && res.StatusCode < 500 {
 		defer res.Body.Close()
 		byteArray, _ := ioutil.ReadAll(res.Body)
-
+		log.Printf("%d %s %s %s req:%s res:%s", res.StatusCode, method, url, contentType, body, byteArray)
 		return byteArray, res.StatusCode, res.Header, nil
 	}
 
@@ -87,19 +85,12 @@ func ProxyServer(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	body, code, res_headers, err := requestBroker(method, path, headers, req.Body)
+	body, code, h, err := requestBroker(method, path, headers, req.Body)
 	if err != nil {
 		// log error
 		log.Println(err)
 	}
-
-	for k, h := range res_headers {
-		// filter headers
-		r := regexp.MustCompile(`^[Aa]ccess-[Cc]ontrol-.*`)
-		if !r.MatchString(k) {
-			res.Header().Set(k, h[0])
-		}
-	}
+	res.Header().Set("content-type", h.Get("content-type"))
 	res.WriteHeader(code)
 	res.Write(body)
 }
