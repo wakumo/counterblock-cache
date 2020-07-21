@@ -15,7 +15,6 @@ import (
 	"time"
 )
 
-var nodes []string
 var pool *redis.Pool
 
 type HttpHandler struct{}
@@ -42,11 +41,23 @@ func getAvailableNodes() []string {
 }
 
 func requestBroker(method string, path string, headers http.Header, bodyReader io.Reader) ([]byte, int, http.Header, error) {
+	var nodes []string
 	var res *http.Response
 	body, _ := ioutil.ReadAll(bodyReader)
 	contentType := headers.Get("Content-type")
-	nodes = getAvailableNodes()
 	var url string
+
+	retryWait := 10
+	retry := 10
+	for i := 0; i < retry; i++ {
+		nodes = getAvailableNodes()
+		if len(nodes) > 0 {
+			break
+		}
+		log.Printf("No avails, retry %d/%d after waiting for %d sec", i+1, retry, retryWait)
+		time.Sleep(time.Second * 10)
+	}
+
 	for _, node := range nodes {
 		url = node + path
 		switch method {
