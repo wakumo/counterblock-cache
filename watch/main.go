@@ -5,7 +5,6 @@ import (
 	"github.com/gomodule/redigo/redis"
 	"github.com/kelseyhightower/envconfig"
 	"log"
-	"math/rand"
 	"net/http"
 	"strings"
 	"sync"
@@ -33,12 +32,6 @@ func newPool(addr string) *redis.Pool {
 	}
 }
 
-func shuffle(data []string) {
-	n := len(data)
-	for i := n - 1; i >= 0; i-- {
-		j := rand.Intn(i + 1)
-		data[i], data[j] = data[j], data[i]
-	}
 }
 
 func makeTimestamp() int64 {
