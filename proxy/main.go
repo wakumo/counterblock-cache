@@ -55,7 +55,7 @@ func requestBroker(method string, path string, headers http.Header, bodyReader i
 			break
 		}
 		log.Printf("No avails, retry %d/%d after waiting for %d sec", i+1, retry, retryWait)
-		time.Sleep(time.Second * 10)
+		time.Sleep(time.Second * retryWait)
 	}
 
 	for _, node := range nodes {
