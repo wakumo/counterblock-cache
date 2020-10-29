@@ -32,6 +32,10 @@ func newPool(addr string) *redis.Pool {
 	}
 }
 
+func getDb() redis.Conn {
+	db := pool.Get()
+	db.Do("SELECT", 0)
+	return db
 }
 
 func makeTimestamp() int64 {
@@ -46,7 +50,7 @@ func checkAvailableNodes() {
 		wg.Add(1)
 		go func(node string) {
 			defer wg.Done()
-			db := pool.Get()
+			db := getDb()
 			defer db.Close()
 
 			url := node + path
@@ -74,7 +78,7 @@ func checkAvailableNodes() {
 }
 
 func showAvailableNodes() {
-	db := pool.Get()
+	db := getDb()
 	defer db.Close()
 
 	res, err := redis.Strings(db.Do("ZRANGE", "available_nodes", 0, 3))
@@ -86,7 +90,7 @@ func showAvailableNodes() {
 
 func initAvailableNodes() {
 	// remove all scores
-	db := pool.Get()
+	db := getDb()
 	defer db.Close()
 	db.Do("DEL", "available_nodes")
 
