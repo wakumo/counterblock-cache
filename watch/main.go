@@ -14,11 +14,12 @@ import (
 var nodes []string
 var pool *redis.Pool
 
+// Config config
 type Config struct {
-	TIMEOUT   int    `default:"5"`
-	CBNODES   string `required:"true"`
-	REDIS     string `default:"localhost:6379"`
-	REDIS_URL string `default:"redis://localhost:6379"`
+	TIMEOUT  int    `default:"5"`
+	CBNODES  string `required:"true"`
+	REDIS    string `default:"localhost:6379"`
+	REDIS_DB int    `default:"0"`
 }
 
 var config Config
@@ -34,7 +35,7 @@ func newPool(addr string) *redis.Pool {
 
 func getDb() redis.Conn {
 	db := pool.Get()
-	db.Do("SELECT", 0)
+	db.Do("SELECT", config.REDIS_DB)
 	return db
 }
 

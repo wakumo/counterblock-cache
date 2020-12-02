@@ -15,9 +15,19 @@ import (
 	"time"
 )
 
+// Config config
+type Config struct {
+	LISTEN   string `default:":8080"`
+	REDIS    string `default:":6379"`
+	REDIS_DB int    `default:"0"`
+}
+
+var config Config
+
 var pool *redis.Pool
 
-type HttpHandler struct{}
+// HTTPHandler struct
+type HTTPHandler struct{}
 
 func newPool(addr string) *redis.Pool {
 	return &redis.Pool{
@@ -26,6 +36,12 @@ func newPool(addr string) *redis.Pool {
 		IdleTimeout: 240 * time.Second,
 		Dial:        func() (redis.Conn, error) { return redis.Dial("tcp", addr) },
 	}
+}
+
+func getDb() redis.Conn {
+	db := pool.Get()
+	db.Do("SELECT", config.REDIS_DB)
+	return db
 }
 
 func getAvailableNodes() []string {
@@ -55,7 +71,7 @@ func requestBroker(method string, path string, headers http.Header, bodyReader i
 			break
 		}
 		log.Printf("No avails, retry %d/%d after waiting for %d sec", i+1, retry, retryWait)
-		time.Sleep(time.Second * retryWait)
+		time.Sleep(time.Second * time.Duration(retryWait))
 	}
 
 	for _, node := range nodes {
@@ -106,13 +122,7 @@ func ProxyServer(res http.ResponseWriter, req *http.Request) {
 	res.Write(body)
 }
 
-type Config struct {
-	LISTEN string `default:":8080"`
-	REDIS  string `default:":6379"`
-}
-
 func main() {
-	var config Config
 	if err := envconfig.Process("", &config); err != nil {
 		log.Fatalf("Failed to process env: %s", err.Error())
 	}
