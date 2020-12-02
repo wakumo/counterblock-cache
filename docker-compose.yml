@@ -1,0 +1,29 @@
+---
+version: '3'
+
+services:
+  cbcp:
+    build:
+      context: ./proxy
+    environment:
+      - "REDIS=redis:6379"
+      - "CBNODES=${CBNODES}"
+    ports:
+      - "8822:8080"
+    links:
+      - redis
+    restart: always
+  cbcw:
+    build:
+      context: ./watch
+    environment:
+      - "CBNODES=${CBNODES}"
+      - "REDIS=redis:6379"
+      - "TIMEOUT=15"
+    restart: always
+    links:
+      - redis
+
+  redis:
+    image: redis:3.2
+    command: redis-server
